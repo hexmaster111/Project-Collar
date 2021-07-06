@@ -298,7 +298,52 @@ void printVars() // Prints out the values receved to the console
     Serial.println("----OUT------");
     Serial.print("vBatt = ");
     Serial.println(vBatt);
+}
 
+void updateBatteryInfo()// Will send battery info to dashboard
+{
+
+    //Save our battry level
+    vBatt = (float)(analogRead(VBAT_PIN)) / 4095 * 2 * 3.3 * 1.1;
+
+#ifdef BATT_ICON
+    //code here to make battery icon
+    //battery-0 Dead, battery-4 battery full
+    //2.4 v is dead battory
+    int icon = map(vBatt, 2.4, 4.2, 0, 4);
+
+    switch (icon)
+    {
+    case 0:
+        battery->save("battery-0");
+        break;
+    case 1:
+        battery->save("battery-1");
+        break;
+    case 2:
+        battery->save("battery-2");
+        break;
+    case 3:
+        battery->save("battery-3");
+        break;
+    case 4:
+        battery->save("battery-4");
+        break;
+    default:
+        battery->save("warning");
+        break;
+    }
+
+    Serial.println("sent: vBatt -> Status");
+    Serial.print("Batt Voltage:");
+    Serial.println(vBatt);
+
+#endif
+#ifndef BATT_ICON
+    battery->save(vBatt);
+    Serial.print("sent: vBatt -> ");
+    Serial.println(vBatt);
+#endif
 }
 
 void peroticLoopFast() //here is things that need to run quicker
@@ -317,17 +362,7 @@ void peroticLoopSlow() //Here will go things that need to every so offten
 {
     if (millis() > (lastUpdateSlow + IO_SLOW_LOOP_DELAY))
     {
-
-        //Save our battry level
-        vBatt = (float)(analogRead(VBAT_PIN)) / 4095 * 2 * 3.3 * 1.1;
-#ifdef BATT_ICON
-        //code here to make battery icon
-#endif
-#ifndef BATT_ICON
-        battery->save(vBatt);
-        Serial.print("sent: vBatt -> ");
-        Serial.println(vBatt);
-#endif
+        updateBatteryInfo(); 
         lastUpdateSlow = millis();
     }
 }
