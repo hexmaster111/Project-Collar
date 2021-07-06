@@ -80,6 +80,7 @@ static const uint8_t fallHour = 1;
 //inputs to io
 AdafruitIO_Feed *location = io.feed("location");
 AdafruitIO_Feed *battery = io.feed("batteryLevel");
+AdafruitIO_Feed *all_log = io.feed("log");
 
 //outputs from io
 AdafruitIO_Feed *vibration = io.feed("vibration");
@@ -115,8 +116,9 @@ void handleMessageShockSetLevel(AdafruitIO_Data *data)
     // convert the data to integer
     int reading = data->toInt();
     shockLevel = reading;
-    if (shockLevel == 0){
-        digitalWrite(SHOCK_PIN, false);//shut off the shock if the slizer goes to zero
+    if (shockLevel == 0)
+    {
+        digitalWrite(SHOCK_PIN, false); //shut off the shock if the slizer goes to zero
     }
     Serial.print("received: Shock Level Change <- ");
     Serial.println(reading);
@@ -126,15 +128,15 @@ void handleMessageDoShock(AdafruitIO_Data *data)
 {
     int reading = data->toBool(); //changed from toint to tobool
     sendShock = reading;
-    if (reading == 0){ //dont care what happonds if the reading is a zero
+    if (reading == 0)
+    { //dont care what happonds if the reading is a zero
         return;
     }
-    Serial.println("received: Do Shock");
 
     //check if we waited long enough and that shck level isnt zero
     if (millis() > (shockStartTime + SHOCK_WAIT_TIME) && (shockLevel != 0))
     {
-        Serial.println("MSG: SHOCK STARTED");
+        all_log->save(String("Drone#") + String(DRONE_ID) + String(":") + String("SHOCK:STARTED"));
 
         digitalWrite(SHOCK_PIN, true);
 
@@ -142,9 +144,11 @@ void handleMessageDoShock(AdafruitIO_Data *data)
     }
     else if (digitalRead(SHOCK_PIN))
     {
-        Serial.println("MSG: SHOCK IN PROGRESS");
-    }else{
-        Serial.println("MSG: ERROR SHOCKING");
+        all_log->save(String("Drone#") + String(DRONE_ID) + String(":") + String("SHOCK:ACTIVE"));
+    }
+    else
+    {
+        all_log->save(String("Drone#") + String(DRONE_ID) + String(":") + String("SHOCK:ERROR"));
     }
 }
 
@@ -203,10 +207,8 @@ void setup()
     Serial.println(io.statusText());
     // This dosent seem to be working as intended
     //get the current data from the dashboard
-    vibration->get();
-    shockSetLevel->get();
-    doShock->get();
     setVision->get();
+    all_log->save(String("Drone#") + String(DRONE_ID) + String(":") + String("ONLINE"));
 }
 
 void adjustTime(NeoGPS::time_t &dt) //We only use this for the display (24 hr time hard)
@@ -329,29 +331,34 @@ void updateBatteryInfo() // Will send battery info to dashboard
     //battery-0 Dead, battery-4 battery full
     //2.4 v is dead battory
     int icon = map(vBatt, 2.4, 4.2, 0, 4);
-
-    switch (icon)
+    if (vBatt < 2)
     {
-    case 0:
-        battery->save("battery-0");
-        break;
-    case 1:
-        battery->save("battery-1");
-        break;
-    case 2:
-        battery->save("battery-2");
-        break;
-    case 3:
-        battery->save("battery-3");
-        break;
-    case 4:
-        battery->save("battery-4");
-        break;
-    default:
         battery->save("warning");
-        break;
     }
-
+    else
+    {
+        switch (icon)
+        {
+        case 0:
+            battery->save("battery-0");
+            break;
+        case 1:
+            battery->save("battery-1");
+            break;
+        case 2:
+            battery->save("battery-2");
+            break;
+        case 3:
+            battery->save("battery-3");
+            break;
+        case 4:
+            battery->save("battery-4");
+            break;
+        default:
+            battery->save("warning");
+            break;
+        }
+    }
     Serial.println("sent: vBatt -> Status");
     Serial.print("Batt Voltage:");
     Serial.println(vBatt);
@@ -369,7 +376,7 @@ void peroticLoopFast() //here is things that need to run quicker
     if (millis() > (lastUpdateFast + IO_FAST_LOOP_DELAY))
     {
         // Shock Reset handler
-        if (millis() > (shockStartTime + shockLevel * 500) && digitalRead(SHOCK_PIN)) 
+        if (millis() > (shockStartTime + shockLevel * 500) && digitalRead(SHOCK_PIN))
         {
             digitalWrite(SHOCK_PIN, false);
         }
