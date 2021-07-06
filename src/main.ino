@@ -16,10 +16,11 @@ double ele;
 
 // Speed we should update the gps information
 // every IO_LOOP_DELAY milliseconds
-#define IO_LOOP_DELAY 30000
-unsigned long lastUpdate;
+#define IO_FAST_LOOP_DELAY 1000
+#define IO_SLOW_LOOP_DELAY 60000
 
 #define DEV_BUILD
+#define BATT_ICON
 
 //Pin to light up the leds
 #define LED_PIN 5
@@ -44,6 +45,9 @@ unsigned long lastUpdate;
 
 //Internal Pin for the bat voltage
 #define VBAT_PIN 35
+
+//For the perotic Timers
+unsigned long lastUpdateFast, lastUpdateSlow;
 
 //Var used to store battery voltage
 float vBatt;
@@ -90,6 +94,7 @@ static const uint8_t fallHour = 1;
 
 //inputs to io
 AdafruitIO_Feed *location = io.feed("location");
+AdafruitIO_Feed *battery = io.feed("batteryLevel");
 
 //outputs from io
 AdafruitIO_Feed *vibration = io.feed("vibration");
@@ -97,12 +102,15 @@ AdafruitIO_Feed *shockSetLevel = io.feed("shockLevel");
 AdafruitIO_Feed *doShock = io.feed("sendShock");
 AdafruitIO_Feed *setVision = io.feed("vision");
 
-//Vibration Handler
+////// MESSAGE HANDLERS ///////////
+int vibrationLevel, shockLevel, visionLevel; //Vars to pull from online
+bool sendShock;
 void handleMessageVibration(AdafruitIO_Data *data)
 {
 
     // convert the data to integer
     int reading = data->toInt();
+    vibrationLevel = reading;
 
     Serial.print("received: Vibration <- ");
     Serial.println(reading);
@@ -113,6 +121,7 @@ void handleMessageShockSetLevel(AdafruitIO_Data *data)
 
     // convert the data to integer
     int reading = data->toInt();
+    shockLevel = reading;
 
     Serial.print("received: Shock Level Change <- ");
     Serial.println(reading);
@@ -121,8 +130,9 @@ void handleMessageShockSetLevel(AdafruitIO_Data *data)
 void handleMessageDoShock(AdafruitIO_Data *data)
 {
     int reading = data->toInt();
-
+    sendShock = reading;
     Serial.print("received: Do Shock <- ");
+
     Serial.println(reading);
 }
 
@@ -131,10 +141,12 @@ void handleMessageSetVision(AdafruitIO_Data *data)
 
     // convert the data to integer
     int reading = data->toInt();
-
+    visionLevel = reading;
     Serial.print("received: Vision Level Change <- ");
     Serial.println(reading);
 }
+
+////// END MESSAGE HANDLERS ///////////
 
 void setup()
 {
@@ -157,7 +169,7 @@ void setup()
 
     // connect to io.adafruit.com
     io.connect();
-
+    //Setup handlers
     vibration->onMessage(handleMessageVibration);
     shockSetLevel->onMessage(handleMessageShockSetLevel);
     doShock->onMessage(handleMessageDoShock);
@@ -172,7 +184,12 @@ void setup()
     // we are connected
     Serial.println();
     Serial.println(io.statusText());
-    // location->get();
+    // This dosent seem to be working as intended
+    //get the current data from the dashboard
+    vibration->get();
+    shockSetLevel->get();
+    doShock->get();
+    setVision->get();
 }
 
 void adjustTime(NeoGPS::time_t &dt) //We only use this for the display (24 hr time hard)
@@ -263,15 +280,61 @@ void gpsLoop()
     location->save(currentSpeed, lat, lon, ele);
     lastSavedLat = lat;
     lastSavedLon = lon;
-    lastUpdate = millis();
+}
+
+void printVars() // Prints out the values receved to the console
+{
+    // int vibrationLevel, shockLevel, visionLevel; //Vars to pull from online
+    // bool sendShock;
+    Serial.println("-----IN-------");
+    Serial.print("Shock Level = ");
+    Serial.println(shockLevel);
+    Serial.print("vibration level ");
+    Serial.println(vibrationLevel);
+    Serial.print("vision level ");
+    Serial.println(visionLevel);
+    Serial.print("Send shock = ");
+    Serial.println(sendShock);
+    Serial.println("----OUT------");
+    Serial.print("vBatt = ");
+    Serial.println(vBatt);
+
+}
+
+void peroticLoopFast() //here is things that need to run quicker
+{
+    if (millis() > (lastUpdateFast + IO_FAST_LOOP_DELAY))
+    {
+
+        gpsLoop();
+
+        //last thing to do
+        lastUpdateFast = millis();
+    }
+}
+
+void peroticLoopSlow() //Here will go things that need to every so offten
+{
+    if (millis() > (lastUpdateSlow + IO_SLOW_LOOP_DELAY))
+    {
+
+        //Save our battry level
+        vBatt = (float)(analogRead(VBAT_PIN)) / 4095 * 2 * 3.3 * 1.1;
+#ifdef BATT_ICON
+        //code here to make battery icon
+#endif
+#ifndef BATT_ICON
+        battery->save(vBatt);
+        Serial.print("sent: vBatt -> ");
+        Serial.println(vBatt);
+#endif
+        lastUpdateSlow = millis();
+    }
 }
 
 void loop()
 {
-
     io.run();
-    if (millis() > (lastUpdate + IO_LOOP_DELAY)) // slow to save power and data
-    {
-        gpsLoop();
-    }
+    peroticLoopFast();
+    peroticLoopSlow();
 }
