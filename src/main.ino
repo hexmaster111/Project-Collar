@@ -19,15 +19,6 @@ double ele;
 #define IO_FAST_LOOP_DELAY 1000
 #define IO_SLOW_LOOP_DELAY 60000
 
-#define DEV_BUILD
-#define BATT_ICON
-
-//Pin to light up the leds
-#define LED_PIN 5
-
-// Assined ID
-#define DRONE_ID 5050
-
 #define GPSport_h
 
 #ifdef DEV_BUILD
@@ -67,9 +58,7 @@ static const NeoGPS::clock_t zone_offset =
     zone_hours * NeoGPS::SECONDS_PER_HOUR +
     zone_minutes * NeoGPS::SECONDS_PER_MINUTE;
 
-// Uncomment one DST changeover rule, or define your own:
-#define USA_DST
-//#define EU_DST
+
 
 #if defined(USA_DST)
 static const uint8_t springMonth = 3;
@@ -262,16 +251,13 @@ void gpsLoop()
 
     if (lat == 0)
     {
+        Serial.println("LAT = 0");
         return;
     }
 
-    // save value and location data to the
-    // 'location' feed on Adafruit IO
-    if (lat == lastSavedLat || lon == lastSavedLon){
-        return;
-    }
 
-    #ifdef DEV_BUILD
+
+#ifdef DEV_BUILD
     Serial.println("----- sending -----");
     Serial.print("Speed: ");
     Serial.println(currentSpeed);
@@ -306,7 +292,7 @@ void printVars() // Prints out the values receved to the console
     Serial.println(vBatt);
 }
 
-void updateBatteryInfo()// Will send battery info to dashboard
+void updateBatteryInfo() // Will send battery info to dashboard
 {
 
     //Save our battry level
@@ -357,7 +343,6 @@ void peroticLoopFast() //here is things that need to run quicker
     if (millis() > (lastUpdateFast + IO_FAST_LOOP_DELAY))
     {
 
-
         lastUpdateFast = millis();
     }
 }
@@ -366,7 +351,7 @@ void peroticLoopSlow() //Here will go things that need to every so offten
 {
     if (millis() > (lastUpdateSlow + IO_SLOW_LOOP_DELAY))
     {
-        updateBatteryInfo(); 
+        updateBatteryInfo();
         gpsLoop();
         //last thing to do
         lastUpdateSlow = millis();
