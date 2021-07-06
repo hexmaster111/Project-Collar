@@ -17,8 +17,8 @@ double ele;
 
 // Speed we should update the gps information
 // every IO_LOOP_DELAY milliseconds
-#define IO_FAST_LOOP_DELAY 1000
-#define IO_SLOW_LOOP_DELAY 60000
+#define IO_FAST_LOOP_DELAY 250
+#define IO_SLOW_LOOP_DELAY 120000
 
 #define GPSport_h
 
@@ -28,8 +28,6 @@ double ele;
 
 #define gpsPort GPS_Serial //was GPS_Serial(1)
 #define GPS_PORT_NAME "GPS_Serial 1"
-
-
 
 //-6 for central time zone
 #define timeZoneTimeCorrection 6
@@ -57,8 +55,6 @@ static const int32_t zone_minutes = 0L;                    // usually zero
 static const NeoGPS::clock_t zone_offset =
     zone_hours * NeoGPS::SECONDS_PER_HOUR +
     zone_minutes * NeoGPS::SECONDS_PER_MINUTE;
-
-
 
 #if defined(USA_DST)
 static const uint8_t springMonth = 3;
@@ -94,6 +90,10 @@ AdafruitIO_Feed *setVision = io.feed("vision");
 ////// MESSAGE HANDLERS ///////////
 int vibrationLevel, shockLevel, visionLevel; //Vars to pull from online
 bool sendShock;
+
+//Holds the time the shock started in ms
+unsigned long shockStartTime;
+
 void handleMessageVibration(AdafruitIO_Data *data)
 {
 
@@ -101,7 +101,7 @@ void handleMessageVibration(AdafruitIO_Data *data)
     int reading = data->toInt();
     vibrationLevel = reading;
 
-    analogWrite(LED_BUILTIN, map(reading,0,100,0,255)); //for levels
+    analogWrite(LED_BUILTIN, map(reading, 0, 100, 0, 255)); //for levels
 
     //analogWrite(VIBRATION_PIN, reading); //for direct control
 
@@ -115,7 +115,9 @@ void handleMessageShockSetLevel(AdafruitIO_Data *data)
     // convert the data to integer
     int reading = data->toInt();
     shockLevel = reading;
-
+    if (shockLevel == 0){
+        digitalWrite(SHOCK_PIN, false);//shut off the shock if the slizer goes to zero
+    }
     Serial.print("received: Shock Level Change <- ");
     Serial.println(reading);
 }
@@ -124,9 +126,26 @@ void handleMessageDoShock(AdafruitIO_Data *data)
 {
     int reading = data->toBool(); //changed from toint to tobool
     sendShock = reading;
-    Serial.print("received: Do Shock <- ");
-    digitalWrite(SHOCK_PIN, reading);
-    Serial.println(reading);
+    if (reading == 0){ //dont care what happonds if the reading is a zero
+        return;
+    }
+    Serial.println("received: Do Shock");
+
+    //check if we waited long enough and that shck level isnt zero
+    if (millis() > (shockStartTime + SHOCK_WAIT_TIME) && (shockLevel != 0))
+    {
+        Serial.println("MSG: SHOCK STARTED");
+
+        digitalWrite(SHOCK_PIN, true);
+
+        shockStartTime = millis();
+    }
+    else if (digitalRead(SHOCK_PIN))
+    {
+        Serial.println("MSG: SHOCK IN PROGRESS");
+    }else{
+        Serial.println("MSG: ERROR SHOCKING");
+    }
 }
 
 void handleMessageSetVision(AdafruitIO_Data *data)
@@ -145,15 +164,12 @@ void setup()
 {
     // Handle some sick io
     pinMode(LED_BUILTIN, OUTPUT); //Dev Stuff
-    pinMode(VIBRATION_PIN, OUTPUT); 
+    pinMode(VIBRATION_PIN, OUTPUT);
     pinMode(SHOCK_PIN, OUTPUT);
 
-    pinMode(VBAT_PIN, INPUT);     //Used for the battery voltage pin
-    
+    pinMode(VBAT_PIN, INPUT); //Used for the battery voltage pin
 
     analogWriteResolution(LED_BUILTIN, 12);
-
-
 
     // start the serial connection
     DEBUG_PORT.begin(115200);
@@ -267,8 +283,6 @@ void gpsLoop()
         return;
     }
 
-
-
 #ifdef DEV_BUILD
     Serial.println("----- sending -----");
     Serial.print("Speed: ");
@@ -354,6 +368,11 @@ void peroticLoopFast() //here is things that need to run quicker
 {
     if (millis() > (lastUpdateFast + IO_FAST_LOOP_DELAY))
     {
+        // Shock Reset handler
+        if (millis() > (shockStartTime + shockLevel * 500) && digitalRead(SHOCK_PIN)) 
+        {
+            digitalWrite(SHOCK_PIN, false);
+        }
 
         lastUpdateFast = millis();
     }
