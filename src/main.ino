@@ -264,7 +264,14 @@ void gpsLoop()
     {
         return;
     }
-#ifdef DEV_BUILD
+
+    // save value and location data to the
+    // 'location' feed on Adafruit IO
+    if (lat == lastSavedLat || lon == lastSavedLon){
+        return;
+    }
+
+    #ifdef DEV_BUILD
     Serial.println("----- sending -----");
     Serial.print("Speed: ");
     Serial.println(currentSpeed);
@@ -275,8 +282,7 @@ void gpsLoop()
     Serial.print("ele: ");
     Serial.println(ele, 2);
 #endif
-    // save value and location data to the
-    // 'location' feed on Adafruit IO
+
     location->save(currentSpeed, lat, lon, ele);
     lastSavedLat = lat;
     lastSavedLon = lon;
@@ -351,9 +357,7 @@ void peroticLoopFast() //here is things that need to run quicker
     if (millis() > (lastUpdateFast + IO_FAST_LOOP_DELAY))
     {
 
-        gpsLoop();
 
-        //last thing to do
         lastUpdateFast = millis();
     }
 }
@@ -363,13 +367,15 @@ void peroticLoopSlow() //Here will go things that need to every so offten
     if (millis() > (lastUpdateSlow + IO_SLOW_LOOP_DELAY))
     {
         updateBatteryInfo(); 
+        gpsLoop();
+        //last thing to do
         lastUpdateSlow = millis();
     }
 }
 
 void loop()
 {
-    io.run();
+    io.run(); //handle adafruit io connection stuff
     peroticLoopFast();
     peroticLoopSlow();
 }
