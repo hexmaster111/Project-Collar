@@ -6,6 +6,7 @@
 #include <SPI.h>
 #include <Wire.h>
 #include "config.h"
+#include <analogWrite.h>
 
 double currentSpeed; //Speed
 
@@ -28,8 +29,7 @@ double ele;
 #define gpsPort GPS_Serial //was GPS_Serial(1)
 #define GPS_PORT_NAME "GPS_Serial 1"
 
-//Only needed if your board is irreragluler like mine >.<
-#define LED_BUILTIN 23
+
 
 //-6 for central time zone
 #define timeZoneTimeCorrection 6
@@ -101,6 +101,10 @@ void handleMessageVibration(AdafruitIO_Data *data)
     int reading = data->toInt();
     vibrationLevel = reading;
 
+    analogWrite(LED_BUILTIN, map(reading,0,100,0,255)); //for levels
+
+    //analogWrite(VIBRATION_PIN, reading); //for direct control
+
     Serial.print("received: Vibration <- ");
     Serial.println(reading);
 }
@@ -118,10 +122,10 @@ void handleMessageShockSetLevel(AdafruitIO_Data *data)
 
 void handleMessageDoShock(AdafruitIO_Data *data)
 {
-    int reading = data->toInt();
+    int reading = data->toBool(); //changed from toint to tobool
     sendShock = reading;
     Serial.print("received: Do Shock <- ");
-
+    digitalWrite(SHOCK_PIN, reading);
     Serial.println(reading);
 }
 
@@ -141,7 +145,15 @@ void setup()
 {
     // Handle some sick io
     pinMode(LED_BUILTIN, OUTPUT); //Dev Stuff
+    pinMode(VIBRATION_PIN, OUTPUT); 
+    pinMode(SHOCK_PIN, OUTPUT);
+
     pinMode(VBAT_PIN, INPUT);     //Used for the battery voltage pin
+    
+
+    analogWriteResolution(LED_BUILTIN, 12);
+
+
 
     // start the serial connection
     DEBUG_PORT.begin(115200);
