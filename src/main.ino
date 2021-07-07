@@ -196,6 +196,7 @@ void setup()
     doShock->onMessage(handleMessageDoShock);
     setVision->onMessage(handleMessageSetVision);
     // wait for a connection
+
     while (io.status() < AIO_CONNECTED)
     {
         Serial.print(".");
@@ -392,6 +393,7 @@ void peroticLoopSlow() //Here will go things that need to every so offten
         updateBatteryInfo();
         gpsLoop();
         //last thing to do
+        all_log->save(String("Drone#") + String(DRONE_ID) + String(":") + String("HB"));
         lastUpdateSlow = millis();
     }
 }
