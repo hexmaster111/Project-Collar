@@ -11,6 +11,7 @@
 // 8. This software is provided without warranty.
 // 9. The software author or license can not be held liable for any damages inflicted by the software.
 
+//@TODO make a config file for relase and template use
 
 #include "Arduino.h"
 #include <NMEAGPS.h>
