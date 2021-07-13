@@ -1,5 +1,5 @@
-//Project collar writed by 5050 
-//released  GPLV3 
+//Project collar writed by 5050
+//released  GPLV3
 
 // 1. Anyone can copy, modify and distribute this software.
 // 2. You have to include the license and copyright notice with each and every distribution.
@@ -12,6 +12,7 @@
 // 9. The software author or license can not be held liable for any damages inflicted by the software.
 
 //@TODO make a config file for relase and template use
+//@TODO figure out how to drive the lcd nicely
 
 #include "Arduino.h"
 #include <NMEAGPS.h>
@@ -31,6 +32,7 @@ double ele;
 
 // Speed we should update the gps information
 // every IO_LOOP_DELAY milliseconds
+#define IO_100HZ_LOOP_DELAY 10
 #define IO_FAST_LOOP_DELAY 250
 #define IO_SLOW_LOOP_DELAY 120000
 
@@ -50,7 +52,7 @@ double ele;
 #define VBAT_PIN 35
 
 //For the perotic Timers
-unsigned long lastUpdateFast, lastUpdateSlow;
+unsigned long lastUpdateFast, lastUpdateSlow, lastUpdate100;
 
 //Var used to store battery voltage
 float vBatt;
@@ -103,7 +105,7 @@ AdafruitIO_Feed *doShock = io.feed("sendShock");
 AdafruitIO_Feed *setVision = io.feed("vision");
 
 ////// MESSAGE HANDLERS ///////////
-int vibrationLevel, shockLevel, visionLevel; //Vars to pull from online
+int vibrationLevel, shockLevel, visionEnable; //Vars to pull from online
 bool sendShock;
 
 //Holds the time the shock started in ms
@@ -169,11 +171,11 @@ void handleMessageDoShock(AdafruitIO_Data *data)
 void handleMessageSetVision(AdafruitIO_Data *data)
 {
 
-    // convert the data to integer
     int reading = data->toInt();
-    visionLevel = reading;
+    visionEnable = reading;
     Serial.print("received: Vision Level Change <- ");
     Serial.println(reading);
+    //The actual vision is handled in ther perotic task
 }
 
 ////// END MESSAGE HANDLERS ///////////
@@ -184,7 +186,8 @@ void setup()
     pinMode(LED_BUILTIN, OUTPUT); //Dev Stuff
     pinMode(VIBRATION_PIN, OUTPUT);
     pinMode(SHOCK_PIN, OUTPUT);
-
+    pinMode(VISION_PIN_A, OUTPUT);
+    pinMode(VISION_PIN_B, OUTPUT);
     pinMode(VBAT_PIN, INPUT); //Used for the battery voltage pin
 
     analogWriteResolution(LED_BUILTIN, 12);
@@ -319,7 +322,7 @@ void gpsLoop()
 
 void printVars() // Prints out the values receved to the console
 {
-    // int vibrationLevel, shockLevel, visionLevel; //Vars to pull from online
+    // int vibrationLevel, shockLevel, visionEnable; //Vars to pull from online
     // bool sendShock;
     Serial.println("-----IN-------");
     Serial.print("Shock Level = ");
@@ -327,7 +330,7 @@ void printVars() // Prints out the values receved to the console
     Serial.print("vibration level ");
     Serial.println(vibrationLevel);
     Serial.print("vision level ");
-    Serial.println(visionLevel);
+    Serial.println(visionEnable);
     Serial.print("Send shock = ");
     Serial.println(sendShock);
     Serial.println("----OUT------");
@@ -385,6 +388,31 @@ void updateBatteryInfo() // Will send battery info to dashboard
     Serial.println(vBatt);
 #endif
 }
+bool lastLCDState = false;
+
+void peroticLoop100HZ()
+{
+    if (millis() > (lastUpdateFast + IO_100HZ_LOOP_DELAY)) // this is likely true every loop
+    {
+
+        switch (visionEnable) // This switch is only to do it immeatly on switch
+        {
+        case 0: //power off vision on
+            digitalWrite(VISION_PIN_A, false);
+            digitalWrite(VISION_PIN_B, false);
+            break;
+        case 1: //power on vision off
+            digitalWrite(VISION_PIN_A, lastLCDState);
+            digitalWrite(VISION_PIN_B, !lastLCDState);
+            lastLCDState = !lastLCDState;
+            break;
+        default:
+            Serial.println("vision handler missconfigured");
+            break;
+        }
+        lastUpdate100 = millis();
+    }
+}
 
 void peroticLoopFast() //here is things that need to run quicker
 {
@@ -415,6 +443,7 @@ void peroticLoopSlow() //Here will go things that need to every so offten
 void loop()
 {
     io.run(); //handle adafruit io connection stuff
+    peroticLoop100HZ();
     peroticLoopFast();
     peroticLoopSlow();
 }
