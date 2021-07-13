@@ -42,7 +42,7 @@ double ele;
 #define DEBUG_PORT Serial
 #endif
 
-#define gpsPort GPS_Serial //was GPS_Serial(1)
+#define gpsPort GPS_Serial
 #define GPS_PORT_NAME "GPS_Serial 1"
 
 //-6 for central time zone
@@ -59,6 +59,7 @@ float vBatt;
 
 float lastSavedLat, lastSavedLon, lastSavedAlt, lastSavedSpeed;
 
+bool lastLCDState = false; //used for the lcd switch timer
 NMEAGPS gps;
 gps_fix fix;
 
@@ -388,7 +389,7 @@ void updateBatteryInfo() // Will send battery info to dashboard
     Serial.println(vBatt);
 #endif
 }
-bool lastLCDState = false;
+
 
 void peroticLoop100HZ()
 {

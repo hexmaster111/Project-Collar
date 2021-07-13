@@ -12,7 +12,7 @@
 #define BATT_ICON
 
 // Assined ID
-#define DRONE_ID 0000
+#define DRONE_ID 5050
 
 //Uncomment to enable dev messages
 #define DEV_BUILD
@@ -20,10 +20,13 @@
 // Use to change the status led pin
 #define LED_BUILTIN 14
 
-//Use to define a shock pin
-#define SHOCK_PIN 2 
+//Use to define a shock pin 
+#define SHOCK_PIN 13
 
 #define VIBRATION_PIN 14
+
+#define VISION_PIN_A 4
+#define VISION_PIN_B 25
 
 //time between shocks in ms 
 #define SHOCK_WAIT_TIME 5000
