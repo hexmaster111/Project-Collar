@@ -20,7 +20,7 @@
 #include "SD.h"
 #include <SPI.h>
 #include <Wire.h>
-#include "config.h"
+#include "config.dev.h"  ///CHANGE THIS TO CONFIG.H
 #include <analogWrite.h>
 
 double currentSpeed; //Speed
